@@ -6,36 +6,36 @@
 
 This repository contains the implementation of **Quantum-Enhanced Deep Belief Networks for Binary Diffusion**, a novel approach that combines diffusion models with quantum annealing for binary data generation.
 
-## 🚀 Overview
+## ???? Overview
 
 Our method models the reverse diffusion process as a Deep Belief Network (DBN) where each layer is a Conditional Restricted Boltzmann Machine (cRBM) corresponding to a diffusion timestep. The key innovation is the ability to sample from these cRBMs using **D-Wave quantum annealing hardware** with proper Pegasus topology constraints.
 
 ### Key Features
 
-- **✅ True D-Wave Integration**: Uses `SimulatedAnnealingSampler` with Pegasus P_6 topology (680 qubits, 4,484 couplers)
-- **🔧 Hybrid Sampling**: Combines classical training with quantum-enhanced generation
-- **📊 Improved Quality**: Reduces salt-and-pepper noise and improves spatial coherence
-- **🔬 Full Reproducibility**: Complete implementation with saved models and results
+- **??? **Honest Positioning**: Quantum-simulated annealing (classical) with strict Pegasus P_6 connectivity enforcement
+- **???? Hybrid Sampling**: Combines classical training with quantum-enhanced generation
+- **???? Improved Quality**: Reduces salt-and-pepper noise and improves spatial coherence
+- **???? Full Reproducibility**: Complete implementation with saved models and results
 
-## 📁 Repository Structure
+## ???? Repository Structure
 
 ```
 MNISTQDF/
-├── qdf.py                      # Core QDF implementation (classical)
-├── quantum_sampler.py          # D-Wave Pegasus quantum sampling
-├── pegasus_quantum_final.py    # Complete quantum-enhanced pipeline
-├── paper.tex                  # Research paper (LaTeX)
-├── requirements.txt           # Python dependencies
-├── LICENSE                    # MIT license
-├── runs_cRBM_diffusion/      # Results and trained models
-│   ├── models/               # Trained QDF layers (*.pt files)
-│   ├── samples_T5_MNIST_class0.png      # Original samples
-│   ├── classical_baseline.png           # Classical Gibbs samples  
-│   └── quantum_annealed_samples.png     # Quantum-enhanced samples
-└── data/                     # MNIST dataset (auto-downloaded)
+????????? qdf.py                      # Core QDF implementation (classical)
+????????? quantum_sampler.py          # D-Wave Pegasus quantum sampling
+????????? pegasus_quantum_final.py    # Complete quantum-enhanced pipeline
+????????? paper.tex                  # Research paper (LaTeX)
+????????? requirements.txt           # Python dependencies
+????????? LICENSE                    # MIT license
+????????? runs_cRBM_diffusion/      # Results and trained models
+???   ????????? models/               # Trained QDF layers (*.pt files)
+???   ????????? samples_T5_MNIST_class0.png      # Original samples
+???   ????????? classical_baseline.png           # Classical Gibbs samples  
+???   ????????? quantum_annealed_samples.png     # Quantum-enhanced samples
+????????? data/                     # MNIST dataset (auto-downloaded)
 ```
 
-## 🛠️ Installation
+## ??????? Installation
 
 ### 1. Clone the Repository
 ```bash
@@ -54,20 +54,20 @@ python -c "import dimod; from dwave.samplers import SimulatedAnnealingSampler; i
 
 ### 3. Verify Installation
 ```bash
-python -c "import torch; import dimod; from dwave.samplers import SimulatedAnnealingSampler; print('✅ All dependencies installed!')"
+python -c "import torch; import dimod; from dwave.samplers import SimulatedAnnealingSampler; print('??? All dependencies installed!')"
 ```
 
-## 🏃‍♂️ Quick Start
+## ????????????? Quick Start
 
 ### Option 1: Use Pre-trained Models (Recommended)
 ```bash
-# Generate samples using the pre-trained model with quantum enhancement
+# Generate samples using the pre-trained model with quantum-simulated Pegasus annealing
 python pegasus_quantum_final.py
 ```
 
 This will:
 - Load the pre-trained 5-layer QDF model
-- Generate samples using true D-Wave Pegasus quantum annealing
+- Generate samples using quantum-simulated annealing with real Pegasus constraints
 - Save comparison images to `runs_cRBM_diffusion/`
 
 ### Option 2: Train from Scratch
@@ -81,12 +81,12 @@ This will:
 - Train 5 cRBM layers (160 epochs each)
 - Save trained models and generate initial samples
 
-## 🔬 Architecture Details
+## ???? Architecture Details
 
 ### Conditional RBM Energy Function
 Each timestep $t$ uses a cRBM with energy:
 ```
-E_t(v, h | c) = -v^T W_t h - a_t^T v - b_t^T h - c^T F_t h - (G_t ⊙ c)^T v
+E_t(v, h | c) = -v^T W_t h - a_t^T v - b_t^T h - c^T F_t h - (G_t ??? c)^T v
 ```
 
 Where:
@@ -99,11 +99,11 @@ Where:
 ### Quantum Annealing Integration (True Pegasus)
 - **Topology**: Pegasus P_6 (680 qubits, 4,484 couplers)
 - **Sampler**: `SimulatedAnnealingSampler` wrapped by `StructureComposite(nodes, edges)`
-- **QUBO**: Conditional RBM → QUBO via second-order mean-field approximation
+- **QUBO**: Conditional RBM ??? QUBO via second-order mean-field approximation
 - **Connectivity**: Only edges present in `dnx.pegasus_graph(6)` are included
 - **Tuning**: Bias sparsity offset and diagonal regularization for realistic stroke width
 
-## 📊 Results
+## ???? Results
 
 ### Quantitative Comparison
 
@@ -113,11 +113,11 @@ Where:
 | Classical (Gibbs) | 0.238 | 76.2% | 0.426 |
 
 ### Qualitative Improvements
-- **🧹 Reduced salt-and-pepper noise**: Pegasus connectivity enforces spatial coherence  
-- **📐 Cleaner digit boundaries**: Quantum annealing finds better global optima
-- **🎯 Better convergence**: Free energy guards eliminate poor samples
+- **???? Reduced salt-and-pepper noise**: Pegasus connectivity enforces spatial coherence  
+- **???? Cleaner digit boundaries**: Quantum annealing finds better global optima
+- **???? Better convergence**: Free energy guards eliminate poor samples
 
-## 📚 Research Paper
+## ???? Research Paper
 
 The complete research paper is available in `paper.tex`. Compile with:
 ```bash
@@ -127,7 +127,7 @@ pdflatex paper.tex
 pdflatex paper.tex
 ```
 
-## 🔧 Advanced Usage
+## ???? Advanced Usage
 
 ### Custom Training Parameters
 ```python
@@ -151,7 +151,7 @@ energy_scale = 1.2          # Bias scaling
 coupling_scale = 0.5        # Interaction scaling
 ```
 
-## 🧪 Reproducing Results
+## ???? Reproducing Results
 
 All results in the paper can be reproduced using the provided scripts:
 
@@ -159,7 +159,7 @@ All results in the paper can be reproduced using the provided scripts:
 2. **Quantum Sampling**: `python pegasus_quantum_final.py`
 3. **Analysis**: View generated images in `runs_cRBM_diffusion/`
 
-## 📋 Requirements
+## ???? Requirements
 
 - **Python**: 3.8+
 - **PyTorch**: 2.0+ (with CUDA support recommended)  
@@ -167,7 +167,7 @@ All results in the paper can be reproduced using the provided scripts:
 - **Hardware**: GPU recommended (RTX 3060+ or equivalent)
 - **Memory**: 8GB+ RAM, 4GB+ VRAM
 
-## 🐛 Troubleshooting
+## ???? Troubleshooting
 
 ### Common Issues
 
@@ -189,7 +189,7 @@ All results in the paper can be reproduced using the provided scripts:
    device = torch.device('cpu')  # In qdf.py
    ```
 
-## 🤝 Contributing
+## ???? Contributing
 
 We welcome contributions! Please:
 1. Fork the repository
@@ -198,7 +198,7 @@ We welcome contributions! Please:
 4. Push to the branch (`git push origin feature/amazing-feature`)
 5. Open a Pull Request
 
-## 📄 Citation
+## ???? Citation
 
 If you use this work, please cite:
 ```bibtex
@@ -210,18 +210,18 @@ If you use this work, please cite:
 }
 ```
 
-## 📜 License
+## ???? License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## 🙏 Acknowledgments
+## ???? Acknowledgments
 
 - **D-Wave Systems**: For Ocean SDK and quantum annealing algorithms
 - **University of Toronto**: For computational resources and support
 - **PyTorch Team**: For the deep learning framework
 - **MNIST Dataset**: Classic benchmark for binary image generation
 
-## 📞 Contact
+## ???? Contact
 
 - **Michael Strojny**: [email@example.com]
 - **Research Lab**: [University of Toronto Computer Science]
@@ -229,4 +229,4 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ---
 
-**🌟 Star this repository if you find it useful for your research!**
+**???? Star this repository if you find it useful for your research!**

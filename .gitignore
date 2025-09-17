@@ -1,10 +1,37 @@
+# Byte-compiled / optimized / DLL files
 __pycache__/
-*.pt
-*.png
-*.ipynb_checkpoints/
-.env
-.venv/
+*.py[cod]
+*.class
+
+# Data and models
+/data/
+/runs_cRBM_diffusion/models/
+
+# Logs and caches
+*.log
+*.tmp
+*.cache/
+/.pytest_cache/
+
+# OS-specific
 .DS_Store
-*.egg-info/
-.dist/
+Thumbs.db
+
+# Jupyter and notebooks
+.ipynb_checkpoints/
+
+# Build artifacts
 build/
+dist/
+
+# Paper (keep locally, never push)
+paper.tex
+paper.pdf
+*.aux
+*.bbl
+*.blg
+*.out
+*.toc
+
+# Credentials (if any)
+.env
