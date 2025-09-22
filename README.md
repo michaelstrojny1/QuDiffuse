@@ -1,45 +1,17 @@
-# Quantum-Enhanced DBN for Binary Diffusion (Pegasus Topology)
+# Binary Diffusion Model Sampled by Conditional RBMs on Quantum Annealer Hardware (Simulation)
 
-A binary diffusion model implemented as a Deep Belief Network (DBN), where each reverse timestep is a Conditional Restricted Boltzmann Machine (cRBM). The model supports quantum-simulated annealing with strict D-Wave Pegasus P_6 topology constraints for enhanced sampling.
+A binary diffusion model implemented as a Deep Belief Network (DBN), where each reverse timestep is a Conditional Restricted Boltzmann Machine (cRBM). This is mathematically sound as a DBN can theoretically model any distribution over binary variables. The model supports sampling via classical gibbs sampling (contrastive divergence) and quantum annealer simulation following D-Wave Pegasus Topology.
 
 ## Overview
 
 - **Architecture**: T-layer DBN with conditional RBMs for reverse diffusion
-- **Quantum Sampling**: SimulatedAnnealingSampler with Pegasus P_6 connectivity enforcement
-- **QUBO Mapping**: Second-order Taylor expansion of RBM energy with hardware constraints
-- **Training**: Layer-wise with Persistent Contrastive Divergence (PCD-20)
-- **Evaluation**: Classical vs. quantum-simulated sampling comparison
+- **Quantum Sampling**: SimulatedAnnealingSampler with Pegasus P_6 connectivity 
+- **QUBO Mapping**: Second-order Taylor expansion of RBM energy
+- **Training**: Each cRBM layer denoises data at t to t-1 and is individually trained with Persistent Contrastive Divergence (PCD)
 
-## Key Features
+## Quantum Hardware Constraints
 
-- End-to-end binary diffusion training and sampling pipeline
-- True Pegasus topology constraints (680 qubits, 4,484 couplers)
-- QUBO formulation with mean-field marginalization
-- Comprehensive evaluation metrics and sample quality analysis
-- Production-ready code with model serialization
-
-## Repository Structure
-
-```
-MNISTQDF/
-├── qdf.py                        # Core QDF training (MNIST, T=20)
-├── qdf copy.py                   # CIFAR-10 optimized version (T=100)
-├── pegasus_quantum_final.py     # Pegasus quantum sampling pipeline
-├── quantum_sampler.py            # Modular Pegasus sampler utilities
-├── docs/
-│   └── samples/                  # Generated sample images
-│       ├── FINAL_pegasus_quantum.png
-│       └── samples_T20_MNIST_class0.png
-├── runs_cRBM_diffusion/
-│   ├── models/                   # Trained model layers
-│   │   ├── config.pt
-│   │   └── layer_t*.pt
-│   └── *.png                     # Output sample grids
-├── data/                         # MNIST/CIFAR-10 datasets
-├── requirements.txt              # Python dependencies
-├── LICENSE                       # MIT License
-└── .gitignore                    # Excludes large files
-```
+Pegasus topology (680 qubits, 4,484 couplers). Only accepts Binary Quadratic Model problems.
 
 ## Installation
 
