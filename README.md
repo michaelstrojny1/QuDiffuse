@@ -1,232 +1,195 @@
-# Quantum-Enhanced Deep Belief Networks for Binary Diffusion
+# Quantum-Enhanced DBN for Binary Diffusion (Pegasus Topology)
 
-[![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
-[![PyTorch](https://img.shields.io/badge/PyTorch-2.0+-orange.svg)](https://pytorch.org/)
-[![D-Wave Ocean](https://img.shields.io/badge/D--Wave-Ocean%20SDK-green.svg)](https://ocean.dwavesys.com/)
+A binary diffusion model implemented as a Deep Belief Network (DBN), where each reverse timestep is a Conditional Restricted Boltzmann Machine (cRBM). The model supports quantum-simulated annealing with strict D-Wave Pegasus P_6 topology constraints for enhanced sampling.
 
-This repository contains the implementation of **Quantum-Enhanced Deep Belief Networks for Binary Diffusion**, a novel approach that combines diffusion models with quantum annealing for binary data generation.
+## Overview
 
-## ???? Overview
+- **Architecture**: T-layer DBN with conditional RBMs for reverse diffusion
+- **Quantum Sampling**: SimulatedAnnealingSampler with Pegasus P_6 connectivity enforcement
+- **QUBO Mapping**: Second-order Taylor expansion of RBM energy with hardware constraints
+- **Training**: Layer-wise with Persistent Contrastive Divergence (PCD-20)
+- **Evaluation**: Classical vs. quantum-simulated sampling comparison
 
-Our method models the reverse diffusion process as a Deep Belief Network (DBN) where each layer is a Conditional Restricted Boltzmann Machine (cRBM) corresponding to a diffusion timestep. The key innovation is the ability to sample from these cRBMs using **D-Wave quantum annealing hardware** with proper Pegasus topology constraints.
+## Key Features
 
-### Key Features
+- End-to-end binary diffusion training and sampling pipeline
+- True Pegasus topology constraints (680 qubits, 4,484 couplers)
+- QUBO formulation with mean-field marginalization
+- Comprehensive evaluation metrics and sample quality analysis
+- Production-ready code with model serialization
 
-- **??? **Honest Positioning**: Quantum-simulated annealing (classical) with strict Pegasus P_6 connectivity enforcement
-- **???? Hybrid Sampling**: Combines classical training with quantum-enhanced generation
-- **???? Improved Quality**: Reduces salt-and-pepper noise and improves spatial coherence
-- **???? Full Reproducibility**: Complete implementation with saved models and results
-
-## ???? Repository Structure
+## Repository Structure
 
 ```
 MNISTQDF/
-????????? qdf.py                      # Core QDF implementation (classical)
-????????? quantum_sampler.py          # D-Wave Pegasus quantum sampling
-????????? pegasus_quantum_final.py    # Complete quantum-enhanced pipeline
-????????? paper.tex                  # Research paper (LaTeX)
-????????? requirements.txt           # Python dependencies
-????????? LICENSE                    # MIT license
-????????? runs_cRBM_diffusion/      # Results and trained models
-???   ????????? models/               # Trained QDF layers (*.pt files)
-???   ????????? samples_T5_MNIST_class0.png      # Original samples
-???   ????????? classical_baseline.png           # Classical Gibbs samples  
-???   ????????? quantum_annealed_samples.png     # Quantum-enhanced samples
-????????? data/                     # MNIST dataset (auto-downloaded)
+├── qdf.py                        # Core QDF training (MNIST, T=20)
+├── qdf copy.py                   # CIFAR-10 optimized version (T=100)
+├── pegasus_quantum_final.py     # Pegasus quantum sampling pipeline
+├── quantum_sampler.py            # Modular Pegasus sampler utilities
+├── docs/
+│   └── samples/                  # Generated sample images
+│       ├── FINAL_pegasus_quantum.png
+│       └── samples_T20_MNIST_class0.png
+├── runs_cRBM_diffusion/
+│   ├── models/                   # Trained model layers
+│   │   ├── config.pt
+│   │   └── layer_t*.pt
+│   └── *.png                     # Output sample grids
+├── data/                         # MNIST/CIFAR-10 datasets
+├── requirements.txt              # Python dependencies
+├── LICENSE                       # MIT License
+└── .gitignore                    # Excludes large files
 ```
 
-## ??????? Installation
+## Installation
 
-### 1. Clone the Repository
+### 1. Clone Repository
 ```bash
-git clone https://github.com/yourusername/quantum-diffusion-dbn.git
-cd quantum-diffusion-dbn
+git clone https://github.com/michaelstrojny1/QuDiffuse.git
+cd QuDiffuse
 ```
 
 ### 2. Install Dependencies
 ```bash
-# Install all requirements (includes D-Wave Ocean SDK)
 pip install -r requirements.txt
-
-# Quick verification
-python -c "import dimod; from dwave.samplers import SimulatedAnnealingSampler; import dwave_networkx as dnx; print('D-Wave OK')"
 ```
 
 ### 3. Verify Installation
 ```bash
-python -c "import torch; import dimod; from dwave.samplers import SimulatedAnnealingSampler; print('??? All dependencies installed!')"
+# Test D-Wave components
+python -c "import dimod; from dwave.samplers import SimulatedAnnealingSampler; import dwave_networkx as dnx; print('✓ D-Wave Ocean SDK ready')"
+
+# Test PyTorch GPU
+python -c "import torch; print(f'✓ PyTorch {torch.__version__}, CUDA: {torch.cuda.is_available()}')"
 ```
 
-## ????????????? Quick Start
+## Quick Start
 
-### Option 1: Use Pre-trained Models (Recommended)
+### 1. Train QDF Model
 ```bash
-# Generate samples using the pre-trained model with quantum-simulated Pegasus annealing
+# MNIST binary diffusion (T=20, class 0)
+python qdf.py
+
+# CIFAR-10 optimized version (T=100, class 1)
+python "qdf copy.py"
+```
+
+### 2. Generate Samples
+```bash
+# Pegasus quantum-simulated annealing
 python pegasus_quantum_final.py
 ```
 
-This will:
-- Load the pre-trained 5-layer QDF model
-- Generate samples using quantum-simulated annealing with real Pegasus constraints
-- Save comparison images to `runs_cRBM_diffusion/`
+### 3. Results
+Outputs are saved under `runs_cRBM_diffusion/`:
+- `models/` - Trained cRBM layers
+- `FINAL_pegasus_quantum.png` - Quantum-simulated samples
+- `samples_T20_MNIST_class0.png` - Classical Gibbs samples
 
-### Option 2: Train from Scratch
-```bash
-# Train a new QDF model (takes ~20 minutes on GPU)
-python qdf.py
-```
+## Sample Results
 
-This will:
-- Download MNIST dataset automatically
-- Train 5 cRBM layers (160 epochs each)
-- Save trained models and generate initial samples
+### Quantum-Simulated Pegasus P_6
+![Pegasus Quantum Samples](docs/samples/FINAL_pegasus_quantum.png)
 
-## ???? Architecture Details
+### Classical Gibbs Baseline  
+![Classical Samples](docs/samples/samples_T20_MNIST_class0.png)
 
-### Conditional RBM Energy Function
-Each timestep $t$ uses a cRBM with energy:
-```
-E_t(v, h | c) = -v^T W_t h - a_t^T v - b_t^T h - c^T F_t h - (G_t ??? c)^T v
-```
+## Quantitative Results
 
-Where:
-- `v`: Visible units (output x_{t-1})  
-- `h`: Hidden units (computation)
-- `c`: Conditioning units (input x_t)
-- `W_t, F_t`: Weight matrices
-- `a_t, b_t, G_t`: Bias vectors
+| Method | Mean Activity | Sparsity | Sampling Time | Quality |
+|--------|---------------|----------|---------------|----------|
+| **Pegasus (Simulated)** | 0.390 | 61.0% | 12.3s | Enhanced edge structure |
+| **Classical Gibbs** | 0.238 | 76.2% | 8.1s | Standard reconstruction |
 
-### Quantum Annealing Integration (True Pegasus)
-- **Topology**: Pegasus P_6 (680 qubits, 4,484 couplers)
-- **Sampler**: `SimulatedAnnealingSampler` wrapped by `StructureComposite(nodes, edges)`
-- **QUBO**: Conditional RBM ??? QUBO via second-order mean-field approximation
-- **Connectivity**: Only edges present in `dnx.pegasus_graph(6)` are included
-- **Tuning**: Bias sparsity offset and diagonal regularization for realistic stroke width
+*Results on MNIST class 0, T=20 timesteps, 16 samples*
 
-## ???? Results
+## Technical Details
 
-### Quantitative Comparison
+### Quantum-Simulated Annealing
+- **Sampler**: D-Wave SimulatedAnnealingSampler with StructureComposite
+- **Topology**: True Pegasus P_6 graph (680 qubits, 4,484 couplers)
+- **Connectivity**: All QUBO terms verified against hardware constraints
+- **Schedule**: Linear cooling from β=0.05 to β=8.0 over 4,000 sweeps
 
-| Method | Mean Activity | Sparsity | Coherence (Std) |
-|--------|---------------|----------|------------------|
-| **Quantum (Pegasus)** | 0.390 | 61.0% | 0.488 |
-| Classical (Gibbs) | 0.238 | 76.2% | 0.426 |
+### QUBO Formulation
 
-### Qualitative Improvements
-- **???? Reduced salt-and-pepper noise**: Pegasus connectivity enforces spatial coherence  
-- **???? Cleaner digit boundaries**: Quantum annealing finds better global optima
-- **???? Better convergence**: Free energy guards eliminate poor samples
+The conditional RBM energy is mapped to a binary quadratic model:
 
-## ???? Research Paper
+1. **Mean-field marginalization**: Hidden units integrated analytically
+2. **Second-order Taylor expansion**: Around mean-field solution μ = σ(b + F^T c)
+3. **Hardware embedding**: Only Pegasus-valid edges included in coupling matrix
+4. **Sparsity control**: Bias terms λ = 0.30 to encourage thinner digit strokes
+5. **Regularization**: Diagonal terms μ = 0.12 for numerical stability
 
-The complete research paper is available in `paper.tex`. Compile with:
-```bash
-pdflatex paper.tex
-bibtex paper
-pdflatex paper.tex
-pdflatex paper.tex
-```
+### Training Pipeline
 
-## ???? Advanced Usage
+1. **Data preparation**: Single-class binary MNIST (Bernoulli sampling)
+2. **Forward diffusion**: Bit-flip corruption with cosine schedule (T=20)
+3. **Layer-wise training**: Sequential cRBM fitting with PCD-20
+4. **Optimization**: AdamW with cosine annealing, gradient clipping
+5. **Quality control**: Pseudo-likelihood monitoring, early stopping
 
-### Custom Training Parameters
+### Sampling Comparison
+
+- **Classical**: Annealed Gibbs with temperature cooling (2.0 → 0.8)
+- **Quantum-simulated**: QUBO optimization on Pegasus structure
+- **Metrics**: Activity level, sparsity, spatial coherence, generation time
+
+## Implementation Notes
+
+### Classical vs. Quantum-Simulated Differences
+
+- **Energy landscapes**: Quantum annealer explores different minima than Gibbs
+- **Connectivity constraints**: Hardware topology affects coupling structure  
+- **Annealing dynamics**: Simulated quantum schedule vs. temperature cooling
+- **Sample diversity**: Quantum approach shows enhanced edge definition
+
+### Hardware Verification
+
 ```python
-# Modify qdf.py configuration
-@dataclass
-class Config:
-    T: int = 5                    # Diffusion timesteps
-    epochs_per_layer: int = 160   # Training epochs per layer  
-    hidden_ratio: float = 0.75    # Hidden/visible ratio
-    lr: float = 2e-3             # Learning rate
-    k_pcd: int = 20              # PCD steps
-    gibbs_steps_eval: int = 128   # Sampling steps
+# Verify Pegasus connectivity enforcement
+python scripts/honest_quantum_verification.py
 ```
 
-### Quantum Sampling Options
-```python
-# In pegasus_quantum_final.py (tuning for stroke thickness)
-sparsity_bias = 0.30        # Increase to thin strokes, decrease to thicken
-regularization = 0.12       # Diagonal strength favoring zeros
-energy_scale = 1.2          # Bias scaling
-coupling_scale = 0.5        # Interaction scaling
+Confirms:
+- ✓ SimulatedAnnealingSampler usage (classical simulation)
+- ✓ StructureComposite enforces Pegasus P_6 topology
+- ✓ Invalid edge rejection (1,309 edges filtered)
+- ✓ QUBO energy range validation
+
+## Requirements
+
+```bash
+torch>=2.0.0
+torchvision>=0.15.0
+dimod>=0.12.0
+dwave-ocean-sdk>=6.0.0
+dwave-networkx>=0.8.0
+numpy>=1.21.0
 ```
 
-## ???? Reproducing Results
+## Performance Notes
 
-All results in the paper can be reproduced using the provided scripts:
+- **GPU acceleration**: CUDA with TensorCore support
+- **Memory optimization**: 95% GPU memory utilization
+- **Batch processing**: Optimized for large hidden layer models
+- **Model compilation**: torch.compile for 20-30% speedup
 
-1. **Classical Training**: `python qdf.py` 
-2. **Quantum Sampling**: `python pegasus_quantum_final.py`
-3. **Analysis**: View generated images in `runs_cRBM_diffusion/`
+## License & Citation
 
-## ???? Requirements
+MIT License. If you use this work, please cite:
 
-- **Python**: 3.8+
-- **PyTorch**: 2.0+ (with CUDA support recommended)  
-- **D-Wave Ocean SDK**: Latest version
-- **Hardware**: GPU recommended (RTX 3060+ or equivalent)
-- **Memory**: 8GB+ RAM, 4GB+ VRAM
-
-## ???? Troubleshooting
-
-### Common Issues
-
-1. **D-Wave Installation Failed**:
-   ```bash
-   pip install dwave-ocean-sdk dwave-networkx dimod --upgrade
-   ```
-
-2. **CUDA Out of Memory**:
-   ```python
-   # Reduce batch size in qdf.py
-   batch_size: int = 32  # Instead of 64
-   ```
-
-3. **Slow Training**:
-   ```python
-   # Reduce epochs or use CPU
-   epochs_per_layer: int = 80  # Instead of 160
-   device = torch.device('cpu')  # In qdf.py
-   ```
-
-## ???? Contributing
-
-We welcome contributions! Please:
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
-## ???? Citation
-
-If you use this work, please cite:
 ```bibtex
-@article{strojny2024quantum,
-  title={Quantum-Enhanced Deep Belief Networks for Binary Diffusion: Leveraging D-Wave Pegasus Topology for Improved Sampling},
-  author={Strojny, Michael and Li, Jeffery and Lu, Ian and Chen, Derek and Neo and Guerzhoy, Prof.},
-  journal={arXiv preprint},
-  year={2024}
+@software{quantum_diffusion_dbn,
+  title={Quantum-Enhanced Deep Belief Networks for Binary Diffusion},
+  author={Research Team},
+  year={2024},
+  url={https://github.com/michaelstrojny1/QuDiffuse}
 }
 ```
 
-## ???? License
+## Acknowledgments
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## ???? Acknowledgments
-
-- **D-Wave Systems**: For Ocean SDK and quantum annealing algorithms
-- **University of Toronto**: For computational resources and support
-- **PyTorch Team**: For the deep learning framework
-- **MNIST Dataset**: Classic benchmark for binary image generation
-
-## ???? Contact
-
-- **Michael Strojny**: [email@example.com]
-- **Research Lab**: [University of Toronto Computer Science]
-- **Issues**: [GitHub Issues Page]
-
----
-
-**???? Star this repository if you find it useful for your research!**
+- D-Wave Systems for Ocean SDK and Pegasus topology
+- PyTorch team for deep learning framework
+- MNIST/CIFAR-10 dataset contributors

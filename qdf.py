@@ -1,20 +1,10 @@
 
-"""
-Quantum Diffusion with Deep Belief Networks - IMPROVED VERSION
-=============================================================
+""" 
+Quantum Diffusion with Deep Belief Networks
+==========================================
 
-FIXES FOR GRAINY SAMPLE ISSUE:
-1. T=20 (was 5): More timesteps for smoother denoising transitions
-2. hidden_ratio=0.85 (was 0.75): Higher capacity for complex reconstruction  
-3. gibbs_steps_eval=256 (was 128): More sampling steps for better convergence
-4. Aggressive annealing: tau 2.0→0.8 (was 1.3→1.0) to escape local minima
-5. Longer mean-field tail: 16 steps (was 8) for cleaner final results
-6. Enhanced retry mechanism: 512 steps (was 256) for bad samples
-
-These changes address the root causes:
-- Salt-and-pepper noise from too few timesteps  
-- Local minima trapping in standard Gibbs sampling
-- Insufficient model capacity for aggressive denoising jumps
+Binary diffusion model using conditional Restricted Boltzmann Machines (cRBMs)
+for each reverse timestep, with quantum-enhanced sampling capabilities.
 """
 
 import math, time, random, os
@@ -40,7 +30,6 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 torch.backends.cudnn.benchmark = True
 torch.backends.cuda.matmul.allow_tf32 = True
-# For PyTorch >= 2.0 on A100 this enables TF32 matmul
 try:
     torch.set_float32_matmul_precision("high")
 except Exception:
@@ -59,14 +48,14 @@ class Config:
     drop_last: bool = True
 
     # diffusion timesteps
-    T: int = 20                       # FIXED: Increased from 5 to 20 for smoother denoising transitions
+    T: int = 20
     schedule: str = "cosine"          # "cosine" or "linear"
     beta_min: float = 0.01            # used for linear schedule
     beta_max: float = 0.12            # used for linear schedule
     p_star: float = 0.35              # final corruption for cosine schedule; T-invariant
 
     # model
-    hidden_ratio: float = 0.85        # FIXED: Increased from 0.75 to 0.85 for better reconstruction capacity
+    hidden_ratio: float = 0.85
     k_pcd: int = 20                   # PCD steps per update
     lr: float = 2e-3
     wd: float = 1e-4
@@ -74,7 +63,7 @@ class Config:
     epochs_per_layer: int = 160
 
     # sampling/IO
-    gibbs_steps_eval: int = 256  # FIXED: Increased from 128 to 256 for better convergence and quality
+    gibbs_steps_eval: int = 256
     n_samples_grid: int = 64
     out_dir: str = "./runs_cRBM_diffusion"
     save_models: bool = True  # Save trained model layers
@@ -85,8 +74,7 @@ cfg = Config()
 # Data (single-class, grayscale, (N,1,H,W) → binarize → (N,D))
 # -------------------------
 def collate_fn(batch):
-    """Collate function for DataLoader (must be at module level for Windows multiprocessing)"""
-    xs = torch.stack([b[0] for b in batch], dim=0)  # (B,D)
+    xs = torch.stack([b[0] for b in batch], dim=0)
     ys = torch.tensor([b[1] for b in batch], dtype=torch.long)
     return xs, ys
 class SingleClassBinaryDataset(Dataset):
@@ -106,10 +94,10 @@ class SingleClassBinaryDataset(Dataset):
 
     def __getitem__(self, idx):
         x, y = self.base[self.indices[idx]]
-        # x: (1,H,W) in [0,1]; Bernoulli sample for binary RBM
+        # Bernoulli sample for binary RBM
         with torch.no_grad():
             x = (torch.rand_like(x) < x).float()
-        x = x.view(-1)  # (D,)
+        x = x.view(-1)
         return x, int(y)
 
 def get_dataloaders(cfg: Config):
@@ -133,7 +121,6 @@ def get_dataloaders(cfg: Config):
     train_set = SingleClassBinaryDataset(train_base, cfg.class_id)
     val_set   = SingleClassBinaryDataset(test_base, cfg.class_id)
 
-    # Guard persistent_workers only when workers>0 (avoids multiprocessing teardown issues)
     pw = cfg.num_workers > 0
 
     train_loader = DataLoader(
@@ -157,18 +144,14 @@ def get_dataloaders(cfg: Config):
 # Bit-flip schedule & forward chain
 # -------------------------
 def cosine_betas(T: int, beta_min: float, beta_max: float, p_star: float = 0.35):
-    """
-    Cosine schedule that enforces a T-invariant final total corruption p_star.
-    beta_min/max are ignored here by design (kept for uniform API).
-    Ensures betas in (0, 0.5) for Bernoulli bit-flips.
-    """
-    t = torch.arange(0, T+1, dtype=torch.float64)       # include 0..T
-    alpha = torch.cos(0.5 * math.pi * (t / T))**2       # [0..T], monotone 1→0
-    gamma_T = 1.0 - 2.0 * p_star                        # target final product
-    gamma_bar = gamma_T * (1 - alpha) + alpha           # gamma_bar[0]=1, gamma_bar[T]=gamma_T
-    ratio = (gamma_bar[1:] / gamma_bar[:-1]).clamp(min=1e-6, max=1.0)  # numerical safety
+    """Cosine schedule for bit-flip probabilities."""
+    t = torch.arange(0, T+1, dtype=torch.float64)
+    alpha = torch.cos(0.5 * math.pi * (t / T))**2
+    gamma_T = 1.0 - 2.0 * p_star
+    gamma_bar = gamma_T * (1 - alpha) + alpha
+    ratio = (gamma_bar[1:] / gamma_bar[:-1]).clamp(min=1e-6, max=1.0)
     betas = 0.5 * (1.0 - ratio)
-    betas = betas.clamp(min=1e-6, max=0.499)            # strict bit-flip domain
+    betas = betas.clamp(min=1e-6, max=0.499)
     return betas.float()
 
 def linear_betas(T: int, beta_min: float, beta_max: float):
@@ -179,20 +162,17 @@ def build_schedule(cfg: Config):
     if cfg.schedule == "cosine":
         betas = cosine_betas(cfg.T, cfg.beta_min, cfg.beta_max, p_star=cfg.p_star)
     else:
-        betas = linear_betas(cfg.T, cfg.beta_min, cfg.beta_max)  # <-- correct order
+        betas = linear_betas(cfg.T, cfg.beta_min, cfg.beta_max)
     if not torch.isfinite(betas).all():
         raise RuntimeError("Non-finite betas in schedule.")
     return betas
 
 @torch.no_grad()
 def make_pair_from_x0(x0: torch.Tensor, betas: torch.Tensor, t: int) -> Tuple[torch.Tensor, torch.Tensor]:
-    """
-    x0: (B,D) ∈ {0,1}; betas: (T,); t ∈ [1..T]
-    Returns (x_{t-1}, x_t) produced by t-1 and t bit-flip steps.
-    """
+    """Generate training pair (x_{t-1}, x_t) from clean data x0."""
     B, D = x0.shape
     xtm1 = x0.to(torch.uint8)
-    for s in range(1, t):  # 1..t-1
+    for s in range(1, t):
         flip = (torch.rand(B, D, device=x0.device) < betas[s-1]).to(torch.uint8)
         xtm1 = xtm1 ^ flip
     flip_t = (torch.rand(B, D, device=x0.device) < betas[t-1]).to(torch.uint8)
@@ -213,19 +193,18 @@ class CRBM(nn.Module):
         self.a = nn.Parameter(torch.zeros(D))
         self.b = nn.Parameter(torch.zeros(H))
 
-        # Conditional (dynamic biases): a_hat = a + G ⊙ c; b_hat = b + F^T c
-        self.G = nn.Parameter(torch.zeros(D))                 # diagonal per-visible gate
-        self.F = nn.Parameter(0.01 * torch.randn(D, H))       # dense coupling for hidden
+        # Conditional biases
+        self.G = nn.Parameter(torch.zeros(D))
+        self.F = nn.Parameter(0.01 * torch.randn(D, H))
 
         self.opt = optim.AdamW(self.parameters(), lr=cfg.lr, weight_decay=cfg.wd)
 
-        # PCD chains (uint8 on device)
+        # PCD chains
         self.v_chain: torch.Tensor | None = None
         self.h_chain: torch.Tensor | None = None
 
     def to(self, *args, **kwargs):
         ret = super().to(*args, **kwargs)
-        # keep self.device in sync if caller passes device
         for arg in args:
             if isinstance(arg, torch.device):
                 self.device = arg
@@ -244,20 +223,15 @@ class CRBM(nn.Module):
 
     @torch.no_grad()
     def pcd_k(self, k: int, c: torch.Tensor):
-        """
-        Persistent Contrastive Divergence steps with clamped condition c.
-        Returns (v, h) uint8.
-        """
+    """Persistent Contrastive Divergence steps."""
         assert self.v_chain is not None and self.h_chain is not None
         v = self.v_chain
         h = self.h_chain
         for _ in range(k):
-            # p(h=1|v,c)
             logits_h = self.b + (c @ self.F) + (v.float() @ self.W)
             logits_h = torch.nan_to_num(logits_h, nan=0.0, posinf=30.0, neginf=-30.0).clamp_(-30, 30)
             prob_h = torch.sigmoid(logits_h)
             h = (torch.rand_like(prob_h) < prob_h).to(torch.uint8)
-            # p(v=1|h,c)
             logits_v = self.a + (self.G * c) + (h.float() @ self.W.t())
             logits_v = torch.nan_to_num(logits_v, nan=0.0, posinf=30.0, neginf=-30.0).clamp_(-30, 30)
             prob_v = torch.sigmoid(logits_v)
@@ -268,21 +242,18 @@ class CRBM(nn.Module):
 
     @torch.no_grad()
     def pll_batch(self, v: torch.Tensor, c: torch.Tensor):
-        """
-        RBM pseudo-likelihood (clamped c), averaged over batch.
-        """
+    """RBM pseudo-likelihood estimation."""
         B, D = v.shape
         i = torch.randint(0, D, (B,), device=v.device)
         mask = F.one_hot(i, num_classes=D).float()
 
-        a_hat = self.a + self.G * c           # (B,D)
-        b_hat = self.b + (c @ self.F)         # (B,H)
+        a_hat = self.a + self.G * c
+        b_hat = self.b + (c @ self.F)
 
-        v_flip = (v + mask) % 2.0             # flip a bit
+        v_flip = (v + mask) % 2.0
         logits_h      = b_hat + v @ self.W
         logits_h_flip = b_hat + v_flip @ self.W
 
-        # Numeric safety before logaddexp
         logits_h = torch.nan_to_num(logits_h, nan=0.0, posinf=30.0, neginf=-30.0).clamp_(-30, 30)
         logits_h_flip = torch.nan_to_num(logits_h_flip, nan=0.0, posinf=30.0, neginf=-30.0).clamp_(-30, 30)
 
@@ -295,28 +266,25 @@ class CRBM(nn.Module):
         return float(pll)
 
     def train_step(self, v_pos: torch.Tensor, c: torch.Tensor, k: int, grad_clip: float):
-        """
-        v_pos, c: (B,D) floats {0,1}
-        Manual MLE gradient via pos/neg stats (no autograd graphs).
-        """
+    """Manual MLE gradient computation."""
         self.opt.zero_grad(set_to_none=True)
 
         with torch.no_grad():
-            a_hat = self.a + self.G * c           # (B,D)
-            b_hat = self.b + (c @ self.F)         # (B,H)
+            a_hat = self.a + self.G * c
+            b_hat = self.b + (c @ self.F)
 
-            # ----- Positive phase -----
+            # Positive phase
             logits_ph = b_hat + v_pos @ self.W
             logits_ph = torch.nan_to_num(logits_ph, nan=0.0, posinf=30.0, neginf=-30.0).clamp_(-30, 30)
-            ph = torch.sigmoid(logits_ph)                          # (B,H)
+            ph = torch.sigmoid(logits_ph)
 
-            pos_W = v_pos.t() @ ph                                 # (D,H)
-            pos_a = v_pos.sum(0)                                   # (D,)
-            pos_b = ph.sum(0)                                      # (H,)
-            pos_F = c.t() @ ph                                     # (D,H)
-            pos_G = (c * v_pos).sum(0)                             # (D,)
+            pos_W = v_pos.t() @ ph
+            pos_a = v_pos.sum(0)
+            pos_b = ph.sum(0)
+            pos_F = c.t() @ ph
+            pos_G = (c * v_pos).sum(0)
 
-            # ----- Negative phase via PCD -----
+            # Negative phase via PCD
             v_neg_u8, _ = self.pcd_k(k=k, c=c)
             v_neg = v_neg_u8.float()
             logits_nh = self.b + (c @ self.F) + v_neg @ self.W
@@ -330,14 +298,12 @@ class CRBM(nn.Module):
             neg_G = (c * v_neg).sum(0)
 
         B = max(1, int(v_pos.shape[0]))
-        # grads = -(pos - neg)/B (maximize log-likelihood)
         gW = - (pos_W - neg_W).to(torch.float32) / B
         ga = - (pos_a - neg_a).to(torch.float32) / B
         gb = - (pos_b - neg_b).to(torch.float32) / B
         gF = - (pos_F - neg_F).to(torch.float32) / B
         gG = - (pos_G - neg_G).to(torch.float32) / B
 
-        # Replace non-finite gradients with zeros to avoid NaN propagation
         for g in (gW, ga, gb, gF, gG):
             torch.nan_to_num(g, nan=0.0, posinf=0.0, neginf=0.0, out=g)
 
@@ -347,10 +313,8 @@ class CRBM(nn.Module):
         self.F.grad = gF
         self.G.grad = gG
 
-        # Grad clipping (canonical list form)
         nn.utils.clip_grad_norm_([self.W, self.a, self.b, self.F, self.G], max_norm=grad_clip)
 
-        # Extra safety: if any grad is still non-finite, skip the step
         if not all(torch.isfinite(p.grad).all() for p in (self.W, self.a, self.b, self.F, self.G)):
             self.opt.zero_grad(set_to_none=True)
             return
@@ -390,7 +354,6 @@ def train_layer(layer_id: int, crbm: CRBM, train_loader, betas, cfg: Config):
         print(f"t={layer_id} ep={ep}/{cfg.epochs_per_layer} | PLL={avg_pll:.4f} | iters={iters} | {time.time()-t0:.1f}s")
         t0 = time.time()
 
-    # free PCD memory for this layer
     crbm.v_chain = None
     crbm.h_chain = None
     torch.cuda.empty_cache()
@@ -400,7 +363,7 @@ def train_layer(layer_id: int, crbm: CRBM, train_loader, betas, cfg: Config):
 # -------------------------
 @torch.no_grad()
 def free_energy(layer: CRBM, v: torch.Tensor, c: torch.Tensor):
-    """Compute free energy for quality assessment"""
+    """Compute free energy for sample quality assessment."""
     a_hat = layer.a + layer.G * c
     b_hat = layer.b + (c @ layer.F)
     logits_h = b_hat + (v @ layer.W)
@@ -410,10 +373,9 @@ def free_energy(layer: CRBM, v: torch.Tensor, c: torch.Tensor):
 
 @torch.no_grad()
 def extra_gibbs(layer: CRBM, v: torch.Tensor, c: torch.Tensor, steps=256):
-    """Extended annealed Gibbs for retry of bad samples"""
-    mf_tail = 16  # FIXED: Longer mean-field tail for cleaner results
+    """Extended annealed Gibbs sampling."""
+    mf_tail = 16
     for s in range(steps):
-        # FIXED: More aggressive temperature annealing matching main sampling
         tau = 2.0 - 1.2 * (s / max(1, steps - 1))
         
         logits_h = (layer.b + (c @ layer.F) + (v @ layer.W)) / tau
@@ -421,7 +383,6 @@ def extra_gibbs(layer: CRBM, v: torch.Tensor, c: torch.Tensor, steps=256):
         ph = torch.sigmoid(logits_h)
         
         if s >= steps - mf_tail:
-            # Mean-field tail for cleaner results
             logits_v = (layer.a + (layer.G * c) + (ph @ layer.W.t())) / tau
             logits_v = torch.nan_to_num(logits_v, nan=0.0, posinf=30.0, neginf=-30.0).clamp_(-30, 30)
             pv = torch.sigmoid(logits_v)
@@ -436,14 +397,14 @@ def extra_gibbs(layer: CRBM, v: torch.Tensor, c: torch.Tensor, steps=256):
 @torch.no_grad()
 def reverse_sample(layers: List[CRBM], cfg: Config, n_samples=64, gibbs_steps=128):
     D = layers[0].D
-    x = torch.bernoulli(0.5*torch.ones(n_samples, D, device=device))  # start at x_T ~ Bern(0.5)
+    x = torch.bernoulli(0.5*torch.ones(n_samples, D, device=device))
 
     for t in range(cfg.T, 0, -1):
         layer = layers[t-1]
         c = x.clone()
         
-        # Conditional warm-start: cheap one-step reconstruction
-        logits_h = layer.b + (c @ layer.F) + (c @ layer.W)  # use v=c for initial hidden sample
+        # Conditional warm-start
+        logits_h = layer.b + (c @ layer.F) + (c @ layer.W)
         logits_h = torch.nan_to_num(logits_h, nan=0.0, posinf=30.0, neginf=-30.0).clamp_(-30, 30)
         h = torch.bernoulli(torch.sigmoid(logits_h))
         logits_v = layer.a + (layer.G * c) + (h @ layer.W.t())
@@ -451,9 +412,8 @@ def reverse_sample(layers: List[CRBM], cfg: Config, n_samples=64, gibbs_steps=12
         v = torch.bernoulli(torch.sigmoid(logits_v))
         
         # Annealed Gibbs with mean-field tail
-        mf_tail = 16  # FIXED: Longer mean-field tail for cleaner results
+        mf_tail = 16
         for s in range(gibbs_steps):
-            # FIXED: More aggressive temperature annealing: start at 2.0, cool to 0.8
             tau = 2.0 - 1.2 * (s / max(1, gibbs_steps - 1))
             
             logits_h = (layer.b + (c @ layer.F) + (v @ layer.W)) / tau
@@ -461,7 +421,6 @@ def reverse_sample(layers: List[CRBM], cfg: Config, n_samples=64, gibbs_steps=12
             ph = torch.sigmoid(logits_h)
             
             if s >= gibbs_steps - mf_tail:
-                # Mean-field tail: use expectations for cleaner results
                 logits_v = (layer.a + (layer.G * c) + (ph @ layer.W.t())) / tau
                 logits_v = torch.nan_to_num(logits_v, nan=0.0, posinf=30.0, neginf=-30.0).clamp_(-30, 30)
                 pv = torch.sigmoid(logits_v)
@@ -472,23 +431,21 @@ def reverse_sample(layers: List[CRBM], cfg: Config, n_samples=64, gibbs_steps=12
                 logits_v = torch.nan_to_num(logits_v, nan=0.0, posinf=30.0, neginf=-30.0).clamp_(-30, 30)
                 v = torch.bernoulli(torch.sigmoid(logits_v))
         
-        # Guard against bad tiles (only for final layer t=1)
+        # Guard against bad samples
         if t == 1:
             Fv = free_energy(layer, v, c)
-            bad = Fv > (Fv.median() + 1.5 * Fv.std())  # FIXED: Slightly more lenient threshold
+            bad = Fv > (Fv.median() + 1.5 * Fv.std())
             if bad.any():
-                # Re-run extended annealed Gibbs for bad samples
                 idx = bad.nonzero(as_tuple=True)[0]
-                v[idx] = extra_gibbs(layer, v[idx], c[idx], steps=512)  # FIXED: More retry steps
+                v[idx] = extra_gibbs(layer, v[idx], c[idx], steps=512)
         
-        x = v  # becomes x_{t-1}
-    return x  # (n,D) {0,1}
+        x = v
+    return x
 
 def save_grid(x_flat: torch.Tensor, cfg: Config, path: str):
     n = x_flat.shape[0]
     img = x_flat.view(n, 1, cfg.img_size, cfg.img_size).cpu()
     nrow = int(round(math.sqrt(n))) or 1
-    # Shuffle tiles for better display (avoid always having same corner pattern)
     grid = utils.make_grid(
         img[torch.randperm(n)], 
         nrow=nrow, padding=2, normalize=False
@@ -497,11 +454,10 @@ def save_grid(x_flat: torch.Tensor, cfg: Config, path: str):
     utils.save_image(grid, path)
 
 def save_model(layers: List[CRBM], cfg: Config, out_dir: str):
-    """Save trained model layers"""
+    """Save trained model layers."""
     model_dir = os.path.join(out_dir, "models")
     os.makedirs(model_dir, exist_ok=True)
     
-    # Save each layer
     for t, layer in enumerate(layers, 1):
         layer_path = os.path.join(model_dir, f"layer_t{t}.pt")
         torch.save({
@@ -516,7 +472,6 @@ def save_model(layers: List[CRBM], cfg: Config, out_dir: str):
         }, layer_path)
         print(f"Saved layer t={t} → {layer_path}")
     
-    # Save config and metadata
     config_path = os.path.join(model_dir, "config.pt")
     torch.save({
         'config': cfg,
@@ -528,7 +483,7 @@ def save_model(layers: List[CRBM], cfg: Config, out_dir: str):
     print(f"Saved config → {config_path}")
 
 def load_model(model_dir: str, device: torch.device):
-    """Load trained model layers"""
+    """Load trained model layers."""
     config_path = os.path.join(model_dir, "config.pt")
     if not os.path.exists(config_path):
         raise FileNotFoundError(f"Config not found at {config_path}")
@@ -567,19 +522,16 @@ def main(cfg: Config):
     betas = build_schedule(cfg).to(device)
     print(f"Schedule type={cfg.schedule} | T={cfg.T} | first beta={betas[0].item():.4f} | last beta={betas[-1].item():.4f}")
 
-    # build & train layers
     layers: List[CRBM] = []
     for t in range(1, cfg.T+1):
         crbm = CRBM(D=D, H=H, device=device).to(device)
         train_layer(t, crbm, train_loader, betas, cfg)
         layers.append(crbm)
 
-    # Save the trained model
     if cfg.save_models:
         save_model(layers, cfg, cfg.out_dir)
         print("[SUCCESS] Model saved successfully!")
 
-    # Generate samples with improved sampling
     print(f"\nGenerating {cfg.n_samples_grid} samples with {cfg.gibbs_steps_eval} Gibbs steps...")
     x_samples = reverse_sample(layers, cfg, n_samples=cfg.n_samples_grid, gibbs_steps=cfg.gibbs_steps_eval)
     out_path = os.path.join(cfg.out_dir, f"samples_T{cfg.T}_{cfg.dataset}_class{cfg.class_id}.png")
@@ -588,13 +540,8 @@ def main(cfg: Config):
 
 if __name__ == "__main__":
     try:
-        print("*** Starting MNIST QDF training ***")
-        print(f"Using device: {device}")
-        print(f"PyTorch version: {torch.__version__}")
-        print(f"CUDA available: {torch.cuda.is_available()}")
-        if torch.cuda.is_available():
-            print(f"GPU: {torch.cuda.get_device_name(0)}")
-            print(f"CUDA version: {torch.version.cuda}")
+        print("Starting QDF training...")
+        print(f"Device: {device}")
         main(cfg)
     except Exception as e:
         print(f"ERROR during training: {e}")

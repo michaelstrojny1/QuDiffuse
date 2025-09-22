@@ -1,26 +1,10 @@
 
 """
-CIFAR-10 QDF: H200 GPU Optimized Binary Diffusion 
-=================================================
+CIFAR-10 QDF: GPU-Optimized Binary Diffusion 
+============================================
 
-OPTIMIZATION SUMMARY (OVERNIGHT PEAK PERFORMANCE):
-- Dataset: CIFAR-10 32x32 (native resolution, no downsampling)
-- Preprocessing: Perceptual RGB->grayscale + contrast boost for detail preservation  
-- Timesteps: T=100 with GENTLE 0.001->0.02 beta schedule (preserves information)
-- Architecture: 200% hidden ratio (2048/1024 units) MASSIVE overcomplete for H200
-- Training: 80 epochs/layer with early stopping (patience=60) + cosine LR + warmup
-- Batch size: 64 (stable gradients for 2048-hidden model)
-- H200 optimizations: TF32, torch.compile, fused AdamW, flash attention, 95% memory
-- Monitoring: Gradient norms, best PLL tracking, early stopping, efficient logging
-- Sampling: 500 Gibbs steps with strong annealing + long mean-field tail
-
-CIFAR CLASS GUIDE (what makes good binary images):
-- Class 1 (automobile): High contrast, clear shapes, geometric features
-- Class 0 (airplane): Good silhouettes, distinct from background  
-- Class 8 (ship): Strong outlines, interesting textures
-- Class 3 (cat): Rich textures, clear boundaries (harder but more interesting)
-
-Current: Class 1 (automobile) - optimal for binary representation
+Binary diffusion model optimized for CIFAR-10 dataset
+with GPU acceleration and enhanced training pipeline.
 """
 
 import math, time, random, os
@@ -44,23 +28,20 @@ def set_seed(seed=123):
 set_seed(123)
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-# === H200 OPTIMIZATIONS ===
+# GPU Optimizations
 torch.backends.cudnn.benchmark = True
 torch.backends.cuda.matmul.allow_tf32 = True
 torch.backends.cudnn.allow_tf32 = True
 
-# H200: Enable mixed precision and optimized attention
 try:
-    torch.set_float32_matmul_precision("high")  # Use Tensor Cores
-    torch.backends.cuda.enable_flash_sdp(True)  # Flash attention if available
+    torch.set_float32_matmul_precision("high")
+    torch.backends.cuda.enable_flash_sdp(True)
 except Exception:
     pass
 
-# H200: Aggressive memory management
 torch.cuda.empty_cache()
 if torch.cuda.is_available():
-    torch.cuda.set_per_process_memory_fraction(0.95)  # H200: use maximum memory
-    # Pre-allocate for stability
+    torch.cuda.set_per_process_memory_fraction(0.95)
     torch.cuda.empty_cache()
 
 # -------------------------
