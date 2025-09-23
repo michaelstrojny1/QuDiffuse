@@ -1,0 +1,17 @@
+# Core Dependencies
+torch>=2.0.0
+torchvision>=0.15.0
+numpy>=1.21.0
+
+# D-Wave Ocean SDK for Quantum Annealing
+dwave-ocean-sdk>=6.0.0
+dwave-networkx>=0.8.0
+dimod>=0.12.0
+
+# Additional Scientific Computing
+matplotlib>=3.5.0
+pillow>=9.0.0
+
+# Optional but Recommended
+tqdm>=4.64.0
+scikit-learn>=1.1.0
