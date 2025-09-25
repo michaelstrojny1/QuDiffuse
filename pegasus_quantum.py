@@ -1,10 +1,5 @@
-#!/usr/bin/env python3
 """ 
-Pegasus Quantum Annealing for QDF
-=================================
-
-Quantum annealing implementation using D-Wave SimulatedAnnealingSampler
-with Pegasus P_6 topology and QUBO embedding.
+Pegasus Quantum Annealing (simulation) for sampling trained diffusion model (see qdf.py)
 """
 
 import os, time
@@ -299,33 +294,6 @@ def main():
             x_quantum = v
 
         q_path, c_path = save_final_comparison(x_quantum, x_classical)
-        
-        print(f"\nRESULTS:")
-        print(f"   Pegasus Quantum: {q_path}")
-        print(f"   Classical:       {c_path}")
-        print(f"   Time: {quantum_time:.1f}s")
-        
-        print(f"\nQUALITY ANALYSIS:")
-        print(f"   Pegasus Quantum:")
-        print(f"     - Activity: {x_quantum.mean():.3f}")
-        print(f"     - Sparsity: {(x_quantum==0).float().mean():.1%}")
-        print(f"     - Coherence: {x_quantum.std():.3f}")
-        
-        print(f"   Classical Baseline:")
-        print(f"     - Activity: {x_classical.mean():.3f}")
-        print(f"     - Sparsity: {(x_classical==0).float().mean():.1%}")
-        print(f"     - Coherence: {x_classical.std():.3f}")
-        
-        print(f"\nSUCCESS: PEGASUS QUANTUM ANNEALING COMPLETE")
-        print(f"   - SimulatedAnnealingSampler with StructureComposite")
-        print(f"   - Pegasus P_6 topology (680 qubits, 4,484 couplers)")
-        print(f"   - QUBO embedding with connectivity constraints")
-        print(f"   - Quantum annealing schedule applied")
-        
-    except Exception as e:
-        print(f"Error: {e}")
-        import traceback
-        traceback.print_exc()
 
 if __name__ == "__main__":
     main()
