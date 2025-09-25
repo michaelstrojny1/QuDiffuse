@@ -1,10 +1,6 @@
-
 """ 
-Quantum Diffusion with Deep Belief Networks
-==========================================
-
 Binary diffusion model using conditional Restricted Boltzmann Machines (cRBMs)
-for each reverse timestep, with quantum-enhanced sampling capabilities.
+for each reverse timestep
 """
 
 import math, time, random, os
@@ -17,9 +13,6 @@ from torch import nn, optim
 from torch.utils.data import DataLoader, Dataset
 from torchvision import datasets, transforms, utils
 
-# -------------------------
-# Repro + CUDA settings
-# -------------------------
 def set_seed(seed=123):
     random.seed(seed)
     torch.manual_seed(seed)
@@ -532,11 +525,10 @@ def main(cfg: Config):
         save_model(layers, cfg, cfg.out_dir)
         print("[SUCCESS] Model saved successfully!")
 
-    print(f"\nGenerating {cfg.n_samples_grid} samples with {cfg.gibbs_steps_eval} Gibbs steps...")
+    print("Generating Samples")
     x_samples = reverse_sample(layers, cfg, n_samples=cfg.n_samples_grid, gibbs_steps=cfg.gibbs_steps_eval)
     out_path = os.path.join(cfg.out_dir, f"samples_T{cfg.T}_{cfg.dataset}_class{cfg.class_id}.png")
     save_grid(x_samples, cfg, out_path)
-    print(f"[SUCCESS] Saved samples -> {out_path}")
 
 if __name__ == "__main__":
     try:
