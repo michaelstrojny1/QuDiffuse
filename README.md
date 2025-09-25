@@ -2,6 +2,8 @@
 
 A binary diffusion model implemented as a Deep Belief Network (DBN), where each reverse timestep is a Conditional Restricted Boltzmann Machine (cRBM). The model supports quantum annealer simulated sampling with D-Wave Pegasus topology constraints. Please read this pre-print for theory: https://www.overleaf.com/read/gydkrjjjgjbf#32aee4
 
+Contributors: Michael Strojny, Jeffery Li, Ian Lu, Derek Chen
+
 ## Overview
 
 - **Architecture**: T-layer DBN with conditional RBMs for reverse diffusion
