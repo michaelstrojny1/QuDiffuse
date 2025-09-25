@@ -1,8 +1,6 @@
-# QuDiffuse (Black and White Image Generation Entirely Run on Quantumn Annealer)
+# QuDiffuse (Black and White Image Generation Entirely Run on Quantum Annealer)
 
-A binary diffusion model implemented as a Deep Belief Network (DBN), where each reverse timestep is a Conditional Restricted Boltzmann Machine (cRBM). The model supports quantum annealer simulated sampling with D-Wave Pegasus topology constraints.
-
-Please read this pre-print for theory: https://www.overleaf.com/read/gydkrjjjgjbf#32aee4
+A binary diffusion model implemented as a Deep Belief Network (DBN), where each reverse timestep is a Conditional Restricted Boltzmann Machine (cRBM). The model supports quantum annealer simulated sampling with D-Wave Pegasus topology constraints. Please read this pre-print for theory: https://www.overleaf.com/read/gydkrjjjgjbf#32aee4
 
 ## Overview
 
